@@ -1,0 +1,710 @@
+
+; You may customize this and other start-up templates; 
+; The location of this template is c:\emu8086\inc\0_com_template.txt
+     
+;abdullah bitar 20200176     
+org 100h
+
+.stack 3
+  
+.data
+x db 12
+y db 40
+i db ?
+j db ?
+f db 1
+lt db ?
+done db 0
+
+topLim db 9
+leftLim db 37
+rightLim db 43
+bottomLim db 15
+
+arr db 25 dup(0)
+      
+.code
+;screen size 25x80
+mov ax,@data
+mov ds,ax
+
+;Set the cursor at the center - 3
+mov al, x
+mov i, al;
+mov al, y
+mov j, al
+sub i, 3
+sub j, 3
+call moveCursor
+                             
+;print first row
+mov dl, 201
+int 21h
+inc j
+mov cx, 5
+mov ah, 2
+firstR:
+mov dl, 205
+int 21h
+loop firstR
+mov dl, 187
+int 21h
+
+;print second column
+add j, 5
+mov cx, 5
+secCol:               
+inc i
+call moveCursor
+mov ah, 2
+mov dl, 186
+int 21h
+loop secCol
+inc i
+call moveCursor
+mov dl, 188
+int 21h
+
+;print last row
+mov cx, 6
+lastR:               
+dec j
+call moveCursor
+mov ah, 2
+mov dl, 205
+int 21h
+loop lastR
+call moveCursor
+mov dl, 200
+int 21h
+
+;print first column
+mov cx, 5
+firstCol:
+dec i
+call moveCursor
+mov ah, 2
+mov dl, 186
+int 21h
+loop firstCol
+
+;set cursor to the left corner
+mov al, x    
+sub al, 2
+mov i, al
+mov al, y
+sub al, 2
+mov j, al
+call moveCursor                        
+
+
+     
+      
+mainL:
+;scan for arrows
+;up arrow : 0x48 down arrow : 0x50 left : 0x4B right : 0x4D
+mov al, 0
+mov ah, 00h
+int 16h
+cmp al, 0xDh
+je enter
+cmp ah, 0x48h ;check if button = up arrow
+jne nxt
+dec i
+nxt:
+
+cmp ah, 0x50h ;check if button = down arrow
+jne nxt2
+inc i
+nxt2:
+
+cmp ah, 0x4Bh  ;check if button = left arrow
+jne nxt3
+dec j
+nxt3:
+
+cmp ah, 0x4Dh  ;check if button = up right
+jne nxt4
+inc j
+nxt4:
+
+mov al, i
+mov bl, j
+
+cmp al, topLim ;if it hit a border we continue and take input again
+jne nxt5
+inc i
+jmp mainL
+nxt5:
+
+cmp al, bottomLim
+jne nxt6
+dec i
+jmp mainL
+nxt6:
+
+cmp bl, leftLim 
+jne nxt7
+inc j
+jmp mainL
+nxt7:
+
+cmp bl, rightLim 
+jne nxt8
+dec j
+jmp mainL
+nxt8:
+
+call moveCursor  ;if the coordinate is correct move the cursor
+jmp afterEnter
+
+enter:
+call getInd
+
+cmp arr[si], 0d
+jne cant 
+
+mov ah, 2
+cmp f, 1 ;if it's the first player's turn print A else B
+jne nxt10
+mov dl, 'A'
+jmp nxt9
+nxt10:
+mov dl, 'B'
+nxt9:
+
+xor f, 1
+
+mov bl, dl    ;fill the 2d array and print
+sub bl, 'A'
+inc bl
+mov arr[si], bl
+int 21h
+
+mov bl, j  ;check horizontal letters
+sub bl, 38
+
+mov lt, dl 
+ 
+cmp bl, 0
+jnz next1
+call zero
+
+cmp done, 1   ; see if we're done
+jz win
+
+next1: cmp bl, 1
+jnz next2
+call one
+
+cmp done, 1
+jz win
+
+next2: cmp bl, 2
+jnz next3
+call two
+
+cmp done, 1
+jz win
+
+next3: cmp bl, 3
+jnz next4
+call three
+
+cmp done, 1
+jz win
+
+next4:cmp bl, 4
+jnz next5
+call four
+
+cmp done, 1
+jz win
+
+next5:
+                 
+                 
+                 
+mov bl, i      ;check vertically 
+sub bl, 10
+
+cmp bl, 0
+jnz next6
+call zero1
+
+cmp done, 1
+jz win
+
+next6: cmp bl, 1
+jnz next7
+call one1
+
+cmp done, 1
+jz win
+
+next7: cmp bl, 2
+jnz next8
+call two1
+
+cmp done, 1
+jz win
+
+next8: cmp bl, 3
+jnz next9
+call three1
+
+cmp done, 1
+jz win
+
+next9:cmp bl, 4
+jnz next10
+call four1
+
+cmp done, 1
+jz win
+
+next10:
+  
+ 
+
+
+cant:
+call moveCursor
+
+
+afterEnter:
+
+jmp mainL
+
+
+win::
+
+mov i, 8
+mov j, 38
+call moveCursor
+
+mov ah, 2
+mov dl, lt
+int 21h
+
+mov dl, ' '
+int 21h
+
+mov dl, 'W'
+int 21h
+mov dl, 'O'
+int 21h
+mov dl, 'N'
+int 21h
+
+
+
+moveCursor proc
+    mov dh, i  ;Row #
+    mov dl, j  ;Column #
+    mov bh, 0
+    mov ah, 02h
+    int 10h
+    ret                  
+moveCursor endp
+
+
+getInd proc
+    mov cl, i ;checking in the 2d array if we have a character at this position or not
+    sub cl, 10
+    shl cl, 2
+    add cl, i
+    sub cl, 10
+    add cl, j
+    sub cl, 38
+    mov ch, 0
+    mov si, cx
+    ret
+getInd endp
+
+zero proc
+    call straightF
+    ret
+zero endp
+
+straightF proc
+    call getInd
+    mov ax, 0
+    mov cx, 3
+    repeat: mov al, arr[si]
+    push ax
+    inc si
+    loop repeat
+    
+    sub si, 3
+    
+    pop ax ;compare first two
+    pop cx
+    pop bx
+    cmp ax, cx
+    jnz exit
+
+    cmp bx, cx
+    jnz exit
+
+    call moveCursor
+    mov dl, lt
+    mov ah, 9   ;print colored
+    mov bl, 12
+    mov cx, 3
+    mov al, dl
+    mov bh, 0
+    int 10h
+    mov done, 1
+
+    exit:
+    ret
+straightF endp
+
+one proc
+    call straightF
+    cmp done, 1
+    jz finish
+    
+    call bothS
+    cmp done, 1
+    jz finish
+    
+    finish:
+    ret
+one endp
+
+bothS proc
+    call getInd
+    mov ax, 0
+    mov cx, 2
+    repeat2: mov al, arr[si]
+    push ax
+    inc si
+    loop repeat2
+    
+    sub si, 3
+    mov al, arr[si]
+    push ax
+    
+    pop ax ;compare first two
+    pop cx
+    pop bx
+    cmp ax, cx
+    jnz exit2
+   
+    cmp ax, bx
+    jnz exit2
+    
+    dec j
+    
+    call moveCursor
+    mov dl, lt
+    mov ah, 9   ;print colored
+    mov bl, 12
+    mov cx, 3
+    mov al, dl
+    mov bh, 0
+    int 10h
+    mov done, 1
+    
+    exit2:
+    ret
+bothS endp
+
+two proc
+    call straightF
+    cmp done, 1
+    jz finish2
+    
+    call bothS
+    cmp done, 1
+    jz finish2
+    
+    call reverse
+    
+    finish2:
+    ret
+two endp
+
+reverse proc
+    call getInd
+    mov ax, 0
+    mov cx, 3
+    repeat3: mov al, arr[si]
+    push ax
+    dec si
+    loop repeat3
+    
+    pop ax ;compare first two
+    pop cx 
+    pop bx
+    cmp ax, cx
+    jnz exit3
+    
+    cmp bx, cx
+    jnz exit3
+    
+    sub j, 2
+    
+    
+    call moveCursor
+    mov dl, lt
+    mov ah, 9   ;print colored
+    mov bl, 12
+    mov cx, 3
+    mov al, dl
+    mov bh, 0
+    int 10h
+    mov done, 1
+    
+    exit3:
+    ret
+reverse endp
+
+three proc
+    call reverse
+    cmp done, 1
+    jz finish4
+    
+    call bothS
+    cmp done, 1
+    jz finish2
+    
+    finish4:
+    ret
+three endp
+
+four proc
+    call reverse
+    ret
+four endp
+
+
+; vertical functions
+
+zero1 proc
+    call straightF1
+    ret
+zero1 endp
+
+straightF1 proc
+    call getInd
+    mov ax, 0
+    mov cx, 3
+    repeatt: mov al, arr[si]
+    push ax
+    add si, 5
+    loop repeatt
+    
+    
+    pop ax ;compare first two
+    pop cx
+    pop bx
+    cmp ax, cx
+    jnz exitt
+
+    cmp bx, cx
+    jnz exitt
+
+    call moveCursor
+    mov dl, lt
+    mov ah, 9   ;print colored
+    mov bl, 12
+    mov cx, 1
+    mov al, dl
+    mov bh, 0
+    int 10h
+    inc i
+    call moveCursor
+    mov dl, lt
+    mov ah, 9   ;print colored
+    mov bl, 12
+    mov cx, 1
+    mov al, dl
+    mov bh, 0
+    int 10h
+    inc i
+    call moveCursor
+    mov dl, lt
+    mov ah, 9   ;print colored
+    mov bl, 12
+    mov cx, 1
+    mov al, dl
+    mov bh, 0
+    int 10h
+    mov done, 1
+
+    exitt:
+    ret
+straightF1 endp
+               
+               
+one1 proc
+    call straightF1
+    cmp done, 1
+    jz finishh
+    
+    call bothS1
+    cmp done, 1
+    jz finishh
+    
+    finishh:
+    ret
+one1 endp
+
+bothS1 proc
+    call getInd
+    mov ax, 0
+    mov cx, 2
+    repeat22: mov al, arr[si]
+    push ax
+    add si, 5
+    loop repeat22
+    
+    sub si, 15
+    mov al, arr[si]
+    push ax
+    
+    pop ax 
+    pop cx
+    pop bx
+    cmp ax, cx
+    jnz exit22
+   
+    cmp ax, bx
+    jnz exit22
+    
+    dec i
+    
+    call moveCursor
+    mov dl, lt
+    mov ah, 9   ;print colored
+    mov bl, 12
+    mov cx, 1
+    mov al, dl
+    mov bh, 0
+    int 10h
+    mov done, 1
+    
+    inc i
+    
+    call moveCursor
+    mov dl, lt
+    mov ah, 9   ;print colored
+    mov bl, 12
+    mov cx, 1
+    mov al, dl
+    mov bh, 0
+    int 10h
+    mov done, 1
+    
+    inc i
+    
+    call moveCursor
+    mov dl, lt
+    mov ah, 9   ;print colored
+    mov bl, 12
+    mov cx, 1
+    mov al, dl
+    mov bh, 0
+    int 10h
+    mov done, 1
+    
+    exit22:
+    ret
+bothS1 endp
+
+two1 proc
+    call straightF1
+    cmp done, 1
+    jz finish23
+    
+    call bothS1
+    cmp done, 1
+    jz finish23
+    
+    call reverse1
+    
+    finish23:
+    ret
+two1 endp
+
+reverse1 proc
+    call getInd
+    mov ax, 0
+    mov cx, 3
+    repeat33: mov al, arr[si]
+    push ax
+    sub si, 5
+    loop repeat33
+    
+    pop ax ;compare first two
+    pop cx 
+    pop bx
+    cmp ax, cx
+    jnz exit33
+    
+    cmp bx, cx
+    jnz exit33
+    
+    
+    call moveCursor
+    mov dl, lt
+    mov ah, 9   ;print colored
+    mov bl, 12
+    mov cx, 1
+    mov al, dl
+    mov bh, 0
+    int 10h
+    mov done, 1
+    
+    dec i
+    
+    call moveCursor
+    mov dl, lt
+    mov ah, 9   ;print colored
+    mov bl, 12
+    mov cx, 1
+    mov al, dl
+    mov bh, 0
+    int 10h
+    mov done, 1
+    
+    dec i
+    
+    call moveCursor
+    mov dl, lt
+    mov ah, 9   ;print colored
+    mov bl, 12
+    mov cx, 1
+    mov al, dl
+    mov bh, 0
+    int 10h
+    mov done, 1
+    
+    exit33:
+    ret
+reverse1 endp
+
+three1 proc
+    call reverse1
+    cmp done, 1
+    jz finish41
+    
+    call bothS1
+    cmp done, 1
+    jz finish41
+    
+    finish41:
+    ret
+three1 endp
+
+four1 proc
+    call reverse1
+    ret
+four1 endp            
+         
+ret
+
+
